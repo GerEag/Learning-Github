@@ -11,6 +11,8 @@ import control
 	# X-positions, Y-positions, times in single list
 # Define start and goal
 # Define parameters of the system
+# Constrain all values to be positive
+# Constrain times to be sequential
 # Define cost functions
 	# Cost functions can be weighted during perturbations
 		# Save best based on length and best based on vibration mitigation
@@ -23,10 +25,15 @@ import control
 
 ### Main process ###
 
+# Evalute cost function before starting algorithm
+
 # while STD of solutions >= certain value and num_iter <= some value:
 	# perturb particles (this will have its own function)
 	# evaluate cost function
+		# if cost is better than best cost
+		# dbest and/or vibest is new particle positions
 	# Evaluate STD of solutions
+	# count up in number of iterations
 
 
 
@@ -49,11 +56,10 @@ class PSO:
 		self.particles=[] # this should have a shape of (num_part,3)
 		self.dbest=[] # this will initially be initial particle coordinates
 		self.vibest=[]
-		self.v=[] 
-		stdn=1000
-		self.sol=np.zeros(stdn) # can't use constant values to populate this; STD will be zero
-		self.STD=5
-		n=0 # keeps track of STD calculations
+		self.v=[]
+		self.sol=[] # can't use constant values to populate this; STD will be zero
+		self.STD=5 # initial value of STD serves a placeholder
+		self.best_f=None # placeholder
 		c1=2
 		c2=2
 
@@ -84,6 +90,15 @@ class PSO:
 		# for i in range(num_part): # maybe should be a while loop
 		while i <= num_part-1:
 			candidate_part = self.perterb(self.particles[i],i)
+			# self.particles[i]=candidate_part
+			# i+=1
+
+			if self.obs_detect() == False:
+				# No obstacles detected
+				self.particles[i]=candidate_part
+				i+=1
+
+
 			# perterb(self.particles[i],self.particles[i+num_part],self.particles[i+2*num_part],i) # will perturb x and y position and time
 			# call obstacle detection
 			# if particle is clear
@@ -91,8 +106,6 @@ class PSO:
 				# i+=1
 			# else
 				# continue # perturb the same particle again
-			self.particles[i]=candidate_part
-			i+=1
 
 	def obs_detect(self):
 		# placeholder
@@ -115,12 +128,12 @@ obs=[(2,4,2,4)] # Defines the corners of the obstacle
 start=(0,0)
 goal=(25,25)
 
-num_part=500
+num_part=50
 
 run_PSO = PSO(width,height,num_part)
 run_PSO.particles=np.zeros((num_part,3))
 # For now, just define attributes manually
-run_PSO.v=np.zeros((num_part,3))
+run_PSO.v=np.ones((num_part,3)) # to get initial perturbation
 run_PSO.dbest=np.zeros((num_part,3))
 run_PSO.vibest=np.zeros((num_part,3))
 
@@ -131,9 +144,10 @@ num_iter=0
 max_iter=10
 while run_PSO.STD>=1 and num_iter<=max_iter: # If one of these conditions is broken, stop
 	run_PSO.move_particles()
+	print(run_PSO.particles)
 
 
-	print('It ran!')
+	# print('It ran!')
 	print('num_iter:',num_iter)
 	num_iter+=1
 
