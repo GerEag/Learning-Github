@@ -1,123 +1,251 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import control
+import Catmull_Rom_splines as Cat
+import implementation as Astar
+import PathPlanning as PP
+
+
+# Getting the initial guess from A*
+###############################################
+# Implementing A*
+
+precision=0.5
+graph = Astar.GridWithWeights(15,15,precision)
+start=(2,6)
+goal=(10,6)
+# start=(0,0)
+# goal=(6,1)
+
+# Define the boundaries of the obstacles
+walls=[]
+
+
+obstacle1_start=(6,3)
+obstacle1_end=(14,5)
+
+
+obstacle2_start=(6,5)
+obstacle2_end=(9,7)
+
+
+obstacle3_start=(6,7)
+obstacle3_end=(12,10)
+
+########################
+# Constructing the obstacles
+
+width1, height1 = PP.obstacle(obstacle1_start,obstacle1_end,walls,precision)
+
+width2, height2 = PP.obstacle(obstacle2_start,obstacle2_end,walls,precision)
+
+width3, height3 = PP.obstacle(obstacle3_start,obstacle3_end,walls,precision)
+
+
+graph.walls=walls
+
+
+# Define parameters for path planning
+v=2
+m=1                            # mass (kg)
+k=(2*np.pi)**2             # spring constant (N/m)
+c0=2*(m*k)**(1/2)
+#zeta=0.1 lightly damped but it can get lower
+zeta=0.0  # damping ratio
+c=zeta*c0
+
+param = [m, k, zeta]
+
+
+came_from, cost_so_far = Astar.a_star_search(graph, start, goal, v, precision, param)
+
+# I want to see the list of nodes that A* reconstructs
+path=Astar.reconstruct_path(came_from, start, goal) #This should return the list of nodes for the path
+# path.insert(0,start)
+# path.append(goal)
+
+
+cat_chain=Cat.CatmullRomChain(path, nPoints=500)
+# print('cat_chain:',cat_chain)
+
+######################
+# From A* path planner
+
+xc,yc=zip(*cat_chain) # points for catmull-rom spline
+# vt=1
+delta_t=0.05
+
+
+path_length, duration, xc, yc, td = PP.distance(xc,yc,v,delta_t)
+
+t=np.arange(0,duration,delta_t) # simulation time to show residual vibration
+
+
+xdp, delta_xd, delta_xd_dot = PP.reconst(xc,td,t,step=False)
+ydp, delta_yd, delta_yd_dot = PP.reconst(yc,td,t,step=False)
 
 
 
-########### Outline for Code ###########
 
-# Define workspace size and obstacles
-# Define initial positions and times of the particles
-	# X-positions, Y-positions, times in single list
-# Define start and goal
-# Define parameters of the system
-# Constrain all values to be positive
-# Constrain times to be sequential
-# Define cost functions
-	# Cost functions can be weighted during perturbations
-		# Save best based on length and best based on vibration mitigation
-	# May still have to weigh them when evaluating cost
+# IDEA: Need to add length of solution to vibration amplitude produced by solution with weights
+		# Use a good initial guess using A*
+		# Prevent algorithm from accepting a worse design
 
-# Define Mean and STD functions
-
-
-
-
-### Main process ###
-
-# Evalute cost function before starting algorithm
-
-# while STD of solutions >= certain value and num_iter <= some value:
-	# perturb particles (this will have its own function)
-	# evaluate cost function
-		# if cost is better than best cost
-		# dbest and/or vibest is new particle positions
-	# Evaluate STD of solutions
-	# count up in number of iterations
-
-
-
-
-
-# Define class for PSA:
-	# free variables
-		# Walls
-		# Particles
-		# solutions of cost functions (maybe)
-		# STD
+# IDEA: Perturbations for distance should be set to exploit rather than explore
+		# There is probably only one shortest path
+		# Possibly want to modify shortest path to reduce some of the tracking error
 
 
 
 class PSO:
-	def __init__(self,width,height,num_part):
+	def __init__(self,start,goal,width,height,t,num_part):
 		self.width=width
 		self.height=height
 		self.walls=[]
 		self.particles=[] # this should have a shape of (num_part,3)
-		self.dbest=[] # this will initially be initial particle coordinates
-		self.vibest=[]
 		self.v=[]
-		self.sol=[] # can't use constant values to populate this; STD will be zero
-		self.STD=5 # initial value of STD serves a placeholder
-		self.best_f=None # placeholder
-		c1=2
-		c2=2
+		self.best=None
+		self.candidate_part=None # placeholder
+		self.c1=0.01
+		self.t=t
+		self.desired=None
 
 
-	# def perterb(x,y,t,i):
 	def perterb(self,part,i):
 		# This will perterb all three coordinates of a particle
-		# self.v[i] = self.v[i] + c1 * np.random.random_sample(3) * (self.dbest[i] - part) + c2 * np.random.random_sample(3) * (self.vibest[i] - part)
-		self.v[i] = self.v[i] + 2 * np.random.random_sample(3) * (self.dbest[i] - part) + 2 * np.random.random_sample(3) * (self.vibest[i] - part)
-		# self.particles[i] = part + v[i]
+		self.v[i] = self.c1 * (np.random.random_sample(3) - 0.5)
 		return part + self.v[i] # candidate particle
 
-		# # This will perturb the x position of each particle
-		# # For x position
-		# v[i] = v[i] + c1 * np.random.random_sample * (self.dbest[i] - x) + c2 * np.random.random_sample * (self.vibest[i] - x)
-		# self.particles[i] = x + v[i]
-		# # For y position
-		# v[i+num_part] = v[i+num_part] + c1 * np.random.random_sample * (self.dbest[i+num_part] - y) + c2 * np.random.random_sample * (self.vibest[i+num_part] - y)
-		# self.particles[i+num_part] = x + v[i+num_part]
-		# # For time
-		# v[i+2*num_part] = v[i+2*num_part] + c1 * np.random.random_sample * (self.dbest[i+2*num_part] - t) + c2 * np.random.random_sample * (self.vibest[i+2*num_part] - t)
-		# self.particles[i+2*num_part] = x + v[i+2*num_part]
-		# # v[i] = v[i] + c1 * np.random.random_sample * (dbest[i] - self.particles[i]) + c2 * np.random.random_sample * (vibest[i] - self.particles[i]) 
+
 
 	def move_particles(self):
 		# allows the particles to be perterbed one at a time so that you can run obstacle detection
 		i=0
-		# for i in range(num_part): # maybe should be a while loop
+
 		while i <= num_part-1:
-			candidate_part = self.perterb(self.particles[i],i)
+			self.candidate_part[i] = self.perterb(self.particles[i],i)
 			# self.particles[i]=candidate_part
 			# i+=1
 
 			if self.obs_detect() == False:
 				# No obstacles detected
-				self.particles[i]=candidate_part
 				i+=1
 
+		current_cost = self.cost(start,goal)
 
-			# perterb(self.particles[i],self.particles[i+num_part],self.particles[i+2*num_part],i) # will perturb x and y position and time
-			# call obstacle detection
-			# if particle is clear
-				# self.particles[i] = candidate_part
-				# i+=1
-			# else
-				# continue # perturb the same particle again
+		if current_cost <= self.best:
+			print('Accepted new design.')
+			# self.best_fv = error
+			self.best = current_cost
+			self.particles=self.candidate_part
+			print('current_cost:',current_cost)
+
+		# else: # probability of accepting a worse design
+		# 	if np.random.random_sample()<=0.01:
+		# 		self.particles=self.candidate_part
+
+			# Run the cost function
+				# Cost function should have two functions
+				# Cost for distance
+				# Cost for vibration
+			# Compare these costs with previous costs
+
+
+	# def move_particles(self):
+	# 	# allows the particles to be perterbed one at a time so that you can run obstacle detection
+	# 	i=0
+
+	# 	while i <= num_part-1:
+	# 		candidate_part = self.perterb(self.particles[i],i)
+	# 		# self.particles[i]=candidate_part
+	# 		# i+=1
+
+	# 		if self.obs_detect() == False:
+	# 			# No obstacles detected
+	# 			self.particles[i]=candidate_part
+	# 			i+=1
+
+	# 	length, error = self.cost(start,goal)
+
+	# 	if length <= self.best_fd:
+	# 		self.dbest=self.particles
+	# 		self.best_fd = length
+
+	# 		# Run the cost function
+	# 			# Cost function should have two functions
+	# 			# Cost for distance
+	# 			# Cost for vibration
+	# 		# Compare these costs with previous costs
 
 	def obs_detect(self):
 		# placeholder
 		return False # no obstacle detected
 
-	def cost(self):
-		# placeholder
-		return 5
 
-	def calc_STD(self,n):
-		# placeholder
-		self.STD=5
+	def cost(self,start,goal):
+		# goal and start should not be particles that are perturbed
+		xp=self.candidate_part[:,0]
+		yp=self.candidate_part[:,1]
+		time=self.t
+
+		# define desired trajectory
+		xd=self.desired[:,0]
+		yd=self.desired[:,1]
+		xd=np.insert(xd,0,start[0])
+		xd=np.append(xd,goal[0])
+		yd=np.insert(yd,0,start[1])
+		yd=np.append(yd,goal[1])
+
+
+		# add goal and start back into these arrays to calculate cost
+		xp=np.insert(xp,0,start[0])
+		xp=np.append(xp,goal[0])
+		yp=np.insert(yp,0,start[1])
+		yp=np.append(yp,goal[1])
+		time=np.insert(time,0,0.0)
+
+
+		# xp=self.particles[:,0]
+		# yp=self.particles[:,1]
+
+		part_length=np.sum(np.sqrt((xp[1:]-xp[0:-1])**2+(yp[1:]-yp[0:-1])**2))
+		# di=np.sqrt((xp[1:]-xp[0:-1])**2+(yp[1:]-yp[0:-1])**2) # distance between each point on path
+		# path_length=np.sum(di) # The actual length of the trajectory
+		# sg_length=np.sqrt((goal[0]-xp[-1])**2+(goal[1]-yp[-1])**2) + np.sqrt((xp[0]-start[0])**2+(yp[0]-start[1])**2)
+		# path_length = part_length + sg_length
+
+
+
+		# parameters to calculate vibration
+		zeta=0.0
+		wn=2*np.pi
+		wd = wn*np.sqrt(1-zeta**2)
+		delta_xp=np.diff(xp)
+		delta_yp=np.diff(yp)
+		num_step=len(delta_xp)
+		errors_sqx=np.zeros(num_step)
+		errors_sqy=np.zeros(num_step)
+
+		# time coordinate of each particle
+		# position of each particle
+		for i in range(num_step):
+			# Error magnitude at each time step
+			# errors_sqx[i] = (np.sum(delta_xp[0:i]*(np.exp(-zeta*wn*(t[i]-t[0:i]))*np.cos(wd*(t[i]-t[0:i]))-1))+xp[i])**2
+			errors_sqx[i] = (np.sum(delta_xp[0:i]*(np.exp(-zeta*wn*(time[i]-time[0:i]))*np.cos(wd*(time[i]-time[0:i]))-1))+xd[i])**2
+			# errors_sqy[i] = (np.sum(delta_yp[0:i]*(np.exp(-zeta*wn*(t[i]-t[0:i]))*np.cos(wd*(t[i]-t[0:i]))-1))+yp[i])**2
+			errors_sqy[i] = (np.sum(delta_yp[0:i]*(np.exp(-zeta*wn*(time[i]-time[0:i]))*np.cos(wd*(time[i]-time[0:i]))-1))+yd[i])**2
+
+		# mag_error=np.sqrt(errors_sqx+errors_sqy)
+		# max_error=max(mag_error)
+		meanerror=np.sum(errors_sqx+errors_sqy)/num_step
+		# print('meanerror:',meanerror)
+		current_cost=0.0*part_length + 1.0*meanerror
+		# current_cost=0*part_length + 1.0*max_error
+		# print('current_cost:',current_cost)
+
+		# return part_length, meanerror
+		return current_cost
+
 
 
 
@@ -128,33 +256,67 @@ obs=[(2,4,2,4)] # Defines the corners of the obstacle
 start=(0,0)
 goal=(25,25)
 
-num_part=50
+# num_part=50
 
-run_PSO = PSO(width,height,num_part)
+# xinit=np.linspace(start[0],goal[0],num_part)
+# yinit=np.linspace(start[1],goal[1],num_part)
+# tinit=np.linspace(0,0,num_part)
+
+xinit=xdp
+yinit=ydp
+tinit=t
+num_part=len(xinit)
+print('num_part:',num_part)
+print('len(t):',len(t))
+
+
+run_PSO = PSO(start,goal,width,height,t,num_part)
+
 run_PSO.particles=np.zeros((num_part,3))
+run_PSO.particles[:,0]=xinit
+run_PSO.particles[:,1]=yinit
+run_PSO.particles[:,2]=tinit
+
+run_PSO.desired=np.zeros((num_part,3))
+run_PSO.desired[:,0]=xinit
+run_PSO.desired[:,1]=yinit
+run_PSO.desired[:,2]=tinit
+
+# run_PSO.particles=np.random.random_sample((num_part,3))
+
+
 # For now, just define attributes manually
-run_PSO.v=np.ones((num_part,3)) # to get initial perturbation
-run_PSO.dbest=np.zeros((num_part,3))
-run_PSO.vibest=np.zeros((num_part,3))
+run_PSO.v=np.zeros((num_part,3)) # to get initial perturbation
+# run_PSO.dbest=np.zeros((num_part,3))
+# run_PSO.vibest=np.zeros((num_part,3))
+run_PSO.candidate_part=np.zeros((num_part,3))
 
 
+# get initial costs
+# run_PSO.best_fd,run_PSO.best_fv = run_PSO.cost(start,goal)
+run_PSO.best = run_PSO.cost(start,goal)
 
 
 num_iter=0
-max_iter=10
-while run_PSO.STD>=1 and num_iter<=max_iter: # If one of these conditions is broken, stop
+max_iter=1000
+while num_iter<=max_iter: # If one of these conditions is broken, stop
 	run_PSO.move_particles()
-	print(run_PSO.particles)
+	# print(run_PSO.particles)
 
 
 	# print('It ran!')
-	print('num_iter:',num_iter)
+	# print('num_iter:',num_iter)
 	num_iter+=1
 
 
 
+xp=run_PSO.particles[:,0]
+yp=run_PSO.particles[:,1]
 
 
+
+plt.plot(xp,yp)
+plt.show()
 
 
 
