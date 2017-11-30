@@ -4,13 +4,15 @@ import control
 import Catmull_Rom_splines as Cat
 import implementation as Astar
 import PathPlanning as PP
+from scipy.integrate import odeint
+
 
 
 # Getting the initial guess from A*
 ###############################################
 # Implementing A*
 
-precision=0.5
+precision=1
 graph = Astar.GridWithWeights(15,15,precision)
 start=(2,6)
 goal=(10,6)
@@ -73,14 +75,14 @@ cat_chain=Cat.CatmullRomChain(path, nPoints=500)
 
 xc,yc=zip(*cat_chain) # points for catmull-rom spline
 # vt=1
-delta_t=0.05
+delta_t=0.025
 
 
 path_length, duration, xc, yc, td = PP.distance(xc,yc,v,delta_t)
 
 t=np.arange(0,duration,delta_t) # simulation time to show residual vibration
 
-
+# this will return the desired path of the flexible mode
 xdp, delta_xd, delta_xd_dot = PP.reconst(xc,td,t,step=False)
 ydp, delta_yd, delta_yd_dot = PP.reconst(yc,td,t,step=False)
 
@@ -239,7 +241,7 @@ class PSO:
 		# max_error=max(mag_error)
 		meanerror=np.sum(errors_sqx+errors_sqy)/num_step
 		# print('meanerror:',meanerror)
-		current_cost=0.0*part_length + 1.0*meanerror
+		current_cost=0.0*part_length + 1*meanerror
 		# current_cost=0*part_length + 1.0*max_error
 		# print('current_cost:',current_cost)
 
@@ -250,11 +252,13 @@ class PSO:
 
 
 
-width=50
-height=50
-obs=[(2,4,2,4)] # Defines the corners of the obstacle
-start=(0,0)
-goal=(25,25)
+# width=50
+# height=50
+width=15
+height=15
+# obs=[(2,4,2,4)] # Defines the corners of the obstacle
+# start=(0,0)
+# goal=(25,25)
 
 # num_part=50
 
@@ -298,7 +302,7 @@ run_PSO.best = run_PSO.cost(start,goal)
 
 
 num_iter=0
-max_iter=1000
+max_iter=5000
 while num_iter<=max_iter: # If one of these conditions is broken, stop
 	run_PSO.move_particles()
 	# print(run_PSO.particles)
@@ -313,9 +317,93 @@ while num_iter<=max_iter: # If one of these conditions is broken, stop
 xp=run_PSO.particles[:,0]
 yp=run_PSO.particles[:,1]
 
+xp, delta_xp, delta_xp_dot = PP.reconst(xp,td,t,step=False)
+yp, delta_yp, delta_yp_dot = PP.reconst(yp,td,t,step=False)
 
 
+
+
+def eq_of_motion(w, t, p):
+    
+    """
+    Defines the differential equations for the coupled spring-mass system.
+
+    Arguments:
+        w :  vector of the state variables:
+                  w = [x, y, x_dot, y_dot]
+        t :  time
+        p :  vector of the parameters:
+                  p = [m, k, c, wf] # wf is forcing frequency
+    
+    Returns:
+        sysODE : An list representing the system of equations of motion as 1st order ODEs
+    """
+    #x, x_dot = w
+    x, x_dot, y, y_dot = w
+    m, k, c, delta_xd, delta_yd, delta_xd_dot, delta_yd_dot = p
+
+    # Create sysODE = (x', y', x_dot', y_dot'):
+    # The state space equations
+
+
+  
+    sysODE = [x_dot,
+              -k/m * x + k/m * command(delta_xd,td,t) - c/m * x_dot + c/m * command(delta_xd_dot,td,t),
+              y_dot,
+              -k/m * y + k/m * command(delta_yd,td,t) - c/m * y_dot + c/m * command(delta_yd_dot,td,t)]
+
+
+    #sysODE = [x_dot,
+    #          -k/m * x + k/m * xd(xc,td),
+    #          y_dot,
+    #          -k/m * y + k/m * yd(yc,td,t)]
+    
+    return sysODE
+
+def command(delta_xd,td,t):
+    xd=np.sum(delta_xd*(t>=td))
+    return xd
+
+
+# Set up simulation parameters
+# ODE solver parameters
+abserr = 1.0e-9
+relerr = 1.0e-9
+max_step = 0.001
+#stoptime = max(time)+tp+10 #max time + tp is time of command, +10 allows plotting residual vibration
+numpoints = 2501
+
+
+# Initial conditions
+x_init = xdp[0]                        # initial position
+x_dot_init = 0.0                    # initial velocity
+y_init = ydp[0]                    # initial angle
+y_dot_init = 0.0                # initial angular velocity
+
+#wf = np.sqrt(k / m1)                # forcing function frequency
+
+# Pack the parameters and initial conditions into arrays 
+p = [m, k, c, delta_xd, delta_yd, delta_xd_dot, delta_yd_dot]
+x0 = [x_init, x_dot_init, y_init, y_dot_init]
+
+
+# Call the ODE solver, returns the response of the system
+resp1 = odeint(eq_of_motion, x0, t, args=(p,), atol=abserr, rtol=relerr,  hmax=max_step)
+
+
+p = [m, k, c, delta_xp, delta_yp, delta_xp_dot, delta_yp_dot]
+
+resp2 = odeint(eq_of_motion, x0, t, args=(p,), atol=abserr, rtol=relerr,  hmax=max_step)
+
+
+
+
+
+plt.plot(xdp,ydp)
 plt.plot(xp,yp)
+# plt.plot(resp1[:,0],resp1[:,2])
+plt.plot(resp2[:,0],resp2[:,2])
+
 plt.show()
 
 

@@ -133,10 +133,10 @@ class SquareGrid:
     
     def neighbors(self, id): # make changes to allow different grid resolutions
         (x, y) = id
-        #results = [(x+1, y), (x, y-1), (x-1, y), (x, y+1)] #only allows four directions of motion
+        results = [(x+1, y), (x, y-1), (x-1, y), (x, y+1)] #only allows four directions of motion
         #Define diagonal nodes as neighbors
         # results = [(x+1, y), (x+1, y-1), (x, y-1), (x-1, y-1), (x-1, y), (x-1, y+1), (x, y+1), (x+1, y+1)] #allows 8 directions of motion
-        results = [(x+self.p, y), (x+self.p, y-self.p), (x, y-self.p), (x-self.p, y-self.p), (x-self.p, y), (x-self.p, y+self.p), (x, y+self.p), (x+self.p, y+self.p)] #allows 8 directions of motion
+        # results = [(x+self.p, y), (x+self.p, y-self.p), (x, y-self.p), (x-self.p, y-self.p), (x-self.p, y), (x-self.p, y+self.p), (x, y+self.p), (x+self.p, y+self.p)] #allows 8 directions of motion
         if (x + y) % 2 == 0: results.reverse() # aesthetics
         results = filter(self.in_bounds, results)
         results = filter(self.passable, results)
@@ -308,7 +308,7 @@ def a_star_search(graph, start, goal, v, p, param):
             break
         
         for next in graph.neighbors(current):
-            new_cost = cost_so_far[current] + 1*graph.cost(current, next) + 0*vib_cost(v,start,next,current,came_from,time, param) # vib_cost is used to add cost to changes in direction (I dont know if this will work)
+            new_cost = cost_so_far[current] + graph.cost(current, next)# + 0*vib_cost(v,start,next,current,came_from,time, param) # vib_cost is used to add cost to changes in direction (I dont know if this will work)
             if next not in cost_so_far or new_cost < cost_so_far[next]:
                 cost_so_far[next] = new_cost
                 priority = new_cost + heuristic(goal, next) # The heuristic is not included in the cost at each node and should not have a weighting factor
