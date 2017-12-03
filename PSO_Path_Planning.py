@@ -80,6 +80,7 @@ delta_t=0.025
 
 path_length, duration, xc, yc, td = PP.distance(xc,yc,v,delta_t)
 
+# t=np.arange(0,duration,delta_t) # simulation time to show residual vibration
 t=np.arange(0,duration,delta_t) # simulation time to show residual vibration
 
 # this will return the desired path of the flexible mode
@@ -142,14 +143,16 @@ class PSO:
 			self.particles=self.candidate_part
 			print('current_cost:',current_cost)
 
-		# else: # probability of accepting a worse design
-		# 	if np.random.random_sample()<=0.01:
-		# 		self.particles=self.candidate_part
+		else: # probability of accepting a worse design
+			if (np.abs(current_cost-self.best))/self.best <= 0.00075 and np.random.random_sample()<=0.0075:
+				self.particles=self.candidate_part
+				self.best = current_cost
+				print('Worse design accepted.')
 
 			# Run the cost function
-				# Cost function should have two functions
-				# Cost for distance
-				# Cost for vibration
+			# 	Cost function should have two functions
+			# 	Cost for distance
+			# 	Cost for vibration
 			# Compare these costs with previous costs
 
 
@@ -241,7 +244,8 @@ class PSO:
 		# max_error=max(mag_error)
 		meanerror=np.sum(errors_sqx+errors_sqy)/num_step
 		# print('meanerror:',meanerror)
-		current_cost=0.0*part_length + 1*meanerror
+		# current_cost=0.0*part_length + 1.0*meanerror
+		current_cost=1.0*meanerror
 		# current_cost=0*part_length + 1.0*max_error
 		# print('current_cost:',current_cost)
 
@@ -270,8 +274,8 @@ xinit=xdp
 yinit=ydp
 tinit=t
 num_part=len(xinit)
-print('num_part:',num_part)
-print('len(t):',len(t))
+# print('num_part:',num_part)
+# print('len(t):',len(t))
 
 
 run_PSO = PSO(start,goal,width,height,t,num_part)
@@ -299,6 +303,7 @@ run_PSO.candidate_part=np.zeros((num_part,3))
 # get initial costs
 # run_PSO.best_fd,run_PSO.best_fv = run_PSO.cost(start,goal)
 run_PSO.best = run_PSO.cost(start,goal)
+print('Initial cost:',run_PSO.best)
 
 
 num_iter=0
@@ -390,19 +395,86 @@ x0 = [x_init, x_dot_init, y_init, y_dot_init]
 # Call the ODE solver, returns the response of the system
 resp1 = odeint(eq_of_motion, x0, t, args=(p,), atol=abserr, rtol=relerr,  hmax=max_step)
 
+mean_error1, max_error1, mean_errorx1, mean_errory1, max_errorx1, max_errory1=PP.mean_max(resp1,duration,xdp,ydp,delta_t)
+print('unmod_mean_error:',mean_error1)
+
 
 p = [m, k, c, delta_xp, delta_yp, delta_xp_dot, delta_yp_dot]
 
 resp2 = odeint(eq_of_motion, x0, t, args=(p,), atol=abserr, rtol=relerr,  hmax=max_step)
 
+mean_error2, max_error2, mean_errorx2, mean_errory2, max_errorx2, max_errory2=PP.mean_max(resp2,duration,xdp,ydp,delta_t)
+print('mod_mean_error:',mean_error2)
 
 
 
+# plt.plot(xdp,ydp)
+# plt.plot(xp,yp)
+# # plt.plot(resp1[:,0],resp1[:,2])
+# plt.plot(resp2[:,0],resp2[:,2])
+fig = plt.figure(figsize=(6,4))
+ax = plt.gca()
+plt.subplots_adjust(bottom=0.17,left=0.17,top=0.96,right=0.96)
+plt.setp(ax.get_ymajorticklabels(),family='serif',fontsize=18)
+plt.setp(ax.get_xmajorticklabels(),family='serif',fontsize=18)
+ax.spines['right'].set_color('none')
+ax.spines['top'].set_color('none')
+ax.xaxis.set_ticks_position('bottom')
+ax.yaxis.set_ticks_position('left')
+ax.grid(True,linestyle=':',color='0.75')
+ax.set_axisbelow(True)
 
-plt.plot(xdp,ydp)
-plt.plot(xp,yp)
-# plt.plot(resp1[:,0],resp1[:,2])
-plt.plot(resp2[:,0],resp2[:,2])
+obs1=plt.Rectangle(obstacle1_start,width1,height1,fc='0.75')
+obs2=plt.Rectangle(obstacle2_start,width2,height2,fc='0.75')
+obs3=plt.Rectangle(obstacle3_start,width3,height3,fc='0.75')
+plt.gca().add_patch(obs1)
+plt.gca().add_patch(obs2)
+plt.gca().add_patch(obs3)
+
+plt.plot(xdp,ydp,label='Desired',linestyle='-.',linewidth=2)
+plt.plot(xp,yp,linestyle='-',linewidth=2,alpha=0)
+plt.plot(resp1[:,0],resp1[:,2],label='Response',linestyle='-',linewidth=2)
+plt.xlabel(r'X Position',family='serif',fontsize=22,weight='bold',labelpad=5)
+plt.ylabel(r'Y Position',family='serif',fontsize=22,weight='bold',labelpad=10)
+plt.xlim(2,16)
+plt.ylim(0,18)
+leg = plt.legend(loc='upper right', fancybox=True,ncol=1,borderaxespad=0.0, labelspacing=0.25)
+ltext = leg.get_texts() 
+plt.setp(ltext,fontsize=16)
+
+
+
+fig = plt.figure(figsize=(6,4))
+ax = plt.gca()
+plt.subplots_adjust(bottom=0.17,left=0.17,top=0.96,right=0.96)
+plt.setp(ax.get_ymajorticklabels(),family='serif',fontsize=18)
+plt.setp(ax.get_xmajorticklabels(),family='serif',fontsize=18)
+ax.spines['right'].set_color('none')
+ax.spines['top'].set_color('none')
+ax.xaxis.set_ticks_position('bottom')
+ax.yaxis.set_ticks_position('left')
+ax.grid(True,linestyle=':',color='0.75')
+ax.set_axisbelow(True)
+
+obs1=plt.Rectangle(obstacle1_start,width1,height1,fc='0.75')
+obs2=plt.Rectangle(obstacle2_start,width2,height2,fc='0.75')
+obs3=plt.Rectangle(obstacle3_start,width3,height3,fc='0.75')
+plt.gca().add_patch(obs1)
+plt.gca().add_patch(obs2)
+plt.gca().add_patch(obs3)
+
+plt.plot(xdp,ydp,label='Desired',linestyle='-.',linewidth=2)
+plt.plot(xp,yp,label='Input',linestyle='-',linewidth=2)
+plt.plot(resp2[:,0],resp2[:,2],label='Response',linestyle='-',linewidth=2)
+plt.xlabel(r'X Position',family='serif',fontsize=22,weight='bold',labelpad=5)
+plt.ylabel(r'Y Position',family='serif',fontsize=22,weight='bold',labelpad=10)
+plt.xlim(2,16)
+plt.ylim(0,18)
+leg = plt.legend(loc='upper right', fancybox=True,ncol=1,borderaxespad=0.0, labelspacing=0.25)
+ltext = leg.get_texts() 
+plt.setp(ltext,fontsize=16)
+
+
 
 plt.show()
 

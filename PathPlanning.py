@@ -344,7 +344,8 @@ def mean_max(resp,duration,xdp,ydp,delta_t):
 	errormag=np.sqrt(errorx**2+errory**2)
 
 	max_error=max(errormag)
-	mean_error=np.sqrt(np.sum(errormag**2)/len(errormag))
+	# mean_error=np.sqrt(np.sum(errormag)/len(errormag))
+	mean_error=np.sum(errormag**2)/len(errormag)
 	#mean_error=np.mean(errormag)
 
 	#return mean_error, max_error, errormag # errormag is magnitude of the error at each time step
