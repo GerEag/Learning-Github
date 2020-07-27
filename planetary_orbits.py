@@ -35,14 +35,19 @@ class Orbits:
 
 		# Constants for the earth
 		self.EARTH_MASS = 5.972E24 # mass of the earth (kg)
-		self.EARTH_DIST = 149.6E9 # average distance of earth from the sun
-		self.EARTH_ANG_VEL = 1.99E-7 # average angular velocity of earth's orbit
+		self.EARTH_DIST = 149.6E9 # average distance of earth from the sun (m)
+		self.EARTH_ANG_VEL = 1.99E-7 # average angular velocity of earth's orbit (rad/s)
+
+		# Constants for mars
+		self.MARS_MASS = 6.39E23 # mass of mars (kg)
+		self.MARS_DIST = 228E9 # average distance from the sun (m)
+		self.MARS_ANG_VEL = 1.06E-7 # average angular velocity of mars' orbit (rad/s)
+
+		# TODO: put constants in an 2D array to make it easy to iterate over
 
 	def orbital_eom(self,t,w):
 
 		R, R_dot, theta, theta_dot = w
-
-		# self.G, self.SUN_MASS = p
 
 		sys_eq = [R_dot,
 				  R*theta_dot**2 - self.G*self.SUN_MASS/R**2,
@@ -53,11 +58,20 @@ class Orbits:
 
 	def sim_orbits(self,time,show_plot=True):
 
+
+		# for earth's orbit
 		x0 = [self.EARTH_DIST, 0.0, 0.0, self.EARTH_ANG_VEL]
 		resp = solve_ivp(self.orbital_eom, [time[0],time[-1]], x0, t_eval=time)
 
 		self.EARTH_X = resp.y[0,:]*np.cos(resp.y[2,:])
 		self.EARTH_Y = resp.y[0,:]*np.sin(resp.y[2,:])
+
+		# for mars' orbit
+		x0 = [self.MARS_DIST, 0.0, 0.0, self.MARS_ANG_VEL]
+		resp = solve_ivp(self.orbital_eom, [time[0],time[-1]], x0, t_eval=time)
+
+		self.MARS_X = resp.y[0,:]*np.cos(resp.y[2,:])
+		self.MARS_Y = resp.y[0,:]*np.sin(resp.y[2,:])
 
 		if show_plot == True:
 			self.plot_orbit()
@@ -70,6 +84,7 @@ class Orbits:
 		plt.ylabel('Y Position',family='serif',fontsize=22,weight='bold',labelpad=10)
 
 		plt.plot(self.EARTH_X, self.EARTH_Y, label = 'Earth', linestyle = '-')
+		plt.plot(self.MARS_X, self.MARS_Y, label = 'Mars', linestyle = '--')
 
 
 		# plt.yticks(np.arange(0,1,0.25))
@@ -100,7 +115,10 @@ class Orbits:
 
 # x0=[avg_dist, 0.0, 0.0, avg_ang_vel]
 
-time = np.arange(0.0,3.15E7,100)
+# earth years to simulate
+years = 1
+
+time = np.arange(0.0,years*3.15E7,100)
 
 EARTH_ORBIT = Orbits()
 
