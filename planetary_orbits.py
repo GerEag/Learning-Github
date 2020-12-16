@@ -35,8 +35,10 @@ class Orbits:
 
 		# Constants for the earth
 		self.EARTH_MASS = 5.972E24 # mass of the earth (kg)
-		self.EARTH_DIST = 149.6E9 # average distance of earth from the sun (m)
-		self.EARTH_ANG_VEL = 1.99E-7 # average angular velocity of earth's orbit (rad/s)
+		# self.EARTH_DIST = 149.6E9 # average distance of earth from the sun (m)
+		# self.EARTH_ANG_VEL = 1.99E-7 # average angular velocity of earth's orbit (rad/s)
+		self.EARTH_DIST = 147.1E9 # distance of earth from the sun at perihelion (m)
+		self.EARTH_ANG_VEL = 30.29E3/self.EARTH_DIST # angular velocity of earth's orbit at perihelion (rad/s)
 
 		# Constants for mars
 		self.MARS_MASS = 6.39E23 # mass of mars (kg)
@@ -58,7 +60,7 @@ class Orbits:
 
 	def sim_orbits(self,time,show_plot=True):
 
-
+		# TODO: simulate all of the orbits together to not ignore interactions between bodies
 		# for earth's orbit
 		x0 = [self.EARTH_DIST, 0.0, 0.0, self.EARTH_ANG_VEL]
 		resp = solve_ivp(self.orbital_eom, [time[0],time[-1]], x0, t_eval=time)
@@ -78,47 +80,40 @@ class Orbits:
 
 	def plot_orbit(self):
 
-		fig = plt.figure(figsize=(6,4))
+		fig = plt.figure(figsize=(6,6))
+		for time_index in range(len(time)):
+			# fig = plt.figure(figsize=(6,4))
+			plt.cla()
 
-		plt.xlabel(r'X Position',family='serif',fontsize=22,weight='bold',labelpad=5)
-		plt.ylabel('Y Position',family='serif',fontsize=22,weight='bold',labelpad=10)
+			plt.xlabel(r'X Position',family='serif',fontsize=22,weight='bold',labelpad=5)
+			plt.ylabel('Y Position',family='serif',fontsize=22,weight='bold',labelpad=10)
 
-		plt.plot(self.EARTH_X, self.EARTH_Y, label = 'Earth', linestyle = '-')
-		plt.plot(self.MARS_X, self.MARS_Y, label = 'Mars', linestyle = '--')
+			plt.xlim(-1.5*self.EARTH_DIST,1.5*self.EARTH_DIST)
+			plt.ylim(-1.5*self.EARTH_DIST,1.5*self.EARTH_DIST)
 
+			# plt.ylim(-0.01,0.85)
+
+			# plt.plot(self.EARTH_X[0:time_index], self.EARTH_Y[0:time_index], label = 'Earth', linestyle = '-')
+			plt.plot(self.EARTH_X[0:time_index], self.EARTH_Y[0:time_index], label = '', linestyle = '-')
+			# plt.plot(self.MARS_X, self.MARS_Y, label = 'Mars', linestyle = '--')
+
+			# leg = plt.legend(loc='upper right', ncol=3,handlelength=1.5,handletextpad=1.1)
+			# ltext  = leg.get_texts()
+			# plt.setp(ltext,family='CMUSerif-Roman',fontsize=16)
+			# plt.setp(ltext,family='serif',fontsize=16)
+			# plt.tight_layout(pad=0.5)
+			plt.pause(0.001)
 
 		# plt.yticks(np.arange(0,1,0.25))
-
-		# plt.xlim(-0.03,None)
-		# plt.ylim(None,60.0)
-		# plt.ylim(-0.01,0.85)
-
-		leg = plt.legend(loc='upper right', ncol=3,handlelength=1.5,handletextpad=1.1)
-		ltext  = leg.get_texts()
-		# plt.setp(ltext,family='CMUSerif-Roman',fontsize=16)
-		plt.setp(ltext,family='serif',fontsize=16)
-
-		plt.tight_layout(pad=0.5)
 		# plt.savefig('/Users/gerald/Documents/GitHub/CRAWLAB-Student-Code/Gerald Eaglin/Internal Reporting/2019_12_11_Eaglin/figures/RL_RL-PD_100000steps.png',transparent=True)
 
-		plt.show()
+		# plt.show()
 
-
-# G = 6.67408E-11
-# M = 1.989E30
-
-# average distance from sun to earth (m)
-# avg_dist = 149.6E9
-
-# average angular velocity (rad/s)
-# avg_ang_vel = 1.99E-7
-
-# x0=[avg_dist, 0.0, 0.0, avg_ang_vel]
 
 # earth years to simulate
-years = 1
+years = 2
 
-time = np.arange(0.0,years*3.15E7,100)
+time = np.arange(0.0,years*3.15E7,1E5)
 
 EARTH_ORBIT = Orbits()
 
