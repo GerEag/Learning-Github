@@ -55,18 +55,47 @@ class Orbits:
 		self.body_orbit_radius = [] # list of current orbit radius
 		self.body_orbit_ang_vel = [] # list of current orbit angular velocity
 
-		# TODO: put constants in an 2D array to make it easy to iterate over
-
-	def orbital_eom(self,t,w):
+	def orbital_eom(self,t,w,body_index,time_index):
 
 		R, R_dot, theta, theta_dot = w
 
+		Fgr, Fgt = self.gravitational_force(body_index,time_index,R,theta)
+
 		sys_eq = [R_dot,
-				  R*theta_dot**2 - self.G*self.SUN_MASS/R**2,
+				  R*theta_dot**2 + Fgr,
 				  theta_dot,
-				  -2*R_dot*theta_dot/R]
+				  -2*R_dot*theta_dot/R + Fgt/R]
 
 		return sys_eq
+
+	# def orbital_eom(self,t,w):
+
+	# 	Earth_R, Earth_R_dot, Earth_theta, Earth_theta_dot, Moon_R, Moon_R_dot, Moon_theta, Moon_theta_dot,= w
+
+	# 	# Fgr, Fgt = self.gravitational_force(body_index,time_index,R,theta)
+
+	# 	Earth_x = Earth_R*np.cos(Earth_theta)
+	# 	Earth_y = Earth_R*np.sin(Earth_theta)
+
+	# 	Moon_x = Moon_R*np.cos(Moon_theta)
+	# 	Moon_y = Moon_R*np.sin(Moon_theta)
+
+	# 	phi = np.arctan2((Earth_y-Moon_y),(Earth_x-Moon_x)) - Moon_theta
+	# 	D_sq = (Earth_x-Moon_x)**2 + (Earth_y-Moon_y)**2
+
+	# 	sys_eq = [Earth_R_dot,
+	# 			  Earth_R*Earth_theta_dot**2 - self.G*self.SUN_MASS/Earth_R**2,
+	# 			  Earth_theta_dot,
+	# 			  -2*Earth_R_dot*Earth_theta_dot/Earth_R,
+	# 			  Moon_R_dot,
+	# 			  Moon_R*Moon_theta_dot**2 - self.G*self.SUN_MASS/Moon_R**2 + self.G*self.body_masses[0]/D_sq*np.cos(phi),
+	# 			  Moon_theta_dot,
+	# 			  -2*Moon_R_dot*Moon_theta_dot/Moon_R + self.G*self.body_masses[0]/(D_sq*Moon_R)*np.sin(phi)]
+
+
+	# 	# print(f"Gravity from sun: {-self.G*self.SUN_MASS/Moon_R**2}")
+	# 	# print(f"Gravity from Earth: {self.G*self.body_masses[0]/D_sq*np.cos(phi)}")
+	# 	return sys_eq
 
 	def add_body(self, name, mass, orbit_radius, orbit_ang_vel):
 
@@ -75,41 +104,67 @@ class Orbits:
 		self.body_orbit_radius.append(orbit_radius)
 		self.body_orbit_ang_vel.append(orbit_ang_vel)
 
-	def gravitational_force(self):
+	def gravitational_force(self,body_index,time_index,R,theta):
 
-		# Add "add orbital body" method
-		# have index for orbital bodies
-		# have lists for masses, and states
-		# for-loop to get influences from other bodies
+		""" Calculate gravitational influences on a body
+			Mass of the orbiting body has been canceled out in the equations of motion
 
-		pass
+			body_index - identifies which body we are currently calculating gravitational influence on
+			R - distance from sun
+			theta - angle of position vector in sun-fixed frame
+		"""
 
-	def distance(self):
-		pass
+		# the sun will always be part of the calculation
+		Fgr = -self.G*self.SUN_MASS/R**2
+		Fgt = 0
+
+		# position of current body in sun-fixed cartesian coordinates
+		body_pos_x = R*np.cos(theta)
+		body_pos_y = R*np.sin(theta)
+
+		# add gravitational influence from other bodies
+		for other_body_index in range(len(self.body_name)):
+			if other_body_index == body_index:
+				# do not calculate influence of gravity on itself
+				continue
+
+			phi, dist_sq = self.distance(body_pos_x,body_pos_y, theta, other_body_index, time_index)	
+
+			Fgr += self.G*self.body_masses[other_body_index]/dist_sq * np.cos(phi)
+			Fgt += self.G*self.body_masses[other_body_index]/dist_sq * np.sin(phi)
+
+		return Fgr, Fgt
+
+
+	def distance(self,body_pos_x,body_pos_y, body_theta, other_body_index, time_index):
+		"""Calculate distance and angle of position vector in body-fixed coordinates
+			Returns angle phi, which is the angle between the body-fixed frame and the other body
+		"""
+
+		other_body_R, _, other_body_theta, _ = self.body_responses[other_body_index,:,time_index]
+
+		other_body_pos_x = other_body_R*np.cos(other_body_theta)
+		other_body_pos_y = other_body_R*np.sin(other_body_theta)
+
+		phi = np.arctan2((other_body_pos_y-body_pos_y),(other_body_pos_x-body_pos_x)) - body_theta
+
+		distance_sq = (other_body_pos_x-body_pos_x)**2 + (other_body_pos_y-body_pos_y)**2
+
+		return phi, distance_sq
+
+
 
 	def sim_orbits(self,time,show_plot=True):
 
-		# # TODO: simulate all of the orbits together to not ignore gravitational interactions between bodies
-		# # for earth's orbit
-		# x0 = [self.EARTH_DIST, 0.0, 0.0, self.EARTH_ANG_VEL]
+		# num_bodies = len(self.body_name)
+		# time_len = len(time)
+
+		# self.body_responses = np.zeros((num_bodies,4,time_len))
+
+		# x0 = [self.body_orbit_radius[0], 0.0, 0.0, self.body_orbit_ang_vel[0], self.body_orbit_radius[1], 0.0, 0.0, self.body_orbit_ang_vel[1]]
 		# resp = solve_ivp(self.orbital_eom, [time[0],time[-1]], x0, t_eval=time)
-
-		# self.EARTH_X = resp.y[0,:]*np.cos(resp.y[2,:])
-		# self.EARTH_Y = resp.y[0,:]*np.sin(resp.y[2,:])
-
-		# # for moon's orbit
-		# x0 = [self.MOON_SUN_DIST, 0.0, 0.0, self.MOON_ANG_VEL]
-		# resp = solve_ivp(self.orbital_eom, [time[0],time[-1]], x0, t_eval=time)
-
-		# self.MOON_X = resp.y[0,:]*np.cos(resp.y[2,:])
-		# self.MOON_Y = resp.y[0,:]*np.sin(resp.y[2,:])
-
-		# # for mars' orbit
-		# x0 = [self.MARS_DIST, 0.0, 0.0, self.MARS_ANG_VEL]
-		# resp = solve_ivp(self.orbital_eom, [time[0],time[-1]], x0, t_eval=time)
-
-		# self.MARS_X = resp.y[0,:]*np.cos(resp.y[2,:])
-		# self.MARS_Y = resp.y[0,:]*np.sin(resp.y[2,:])
+		# self.body_responses[0,:,:] = resp.y[0:4,:]
+		# self.body_responses[1,:,:] = resp.y[4:,:]
 
 		num_bodies = len(self.body_name)
 		time_len = len(time)
@@ -123,7 +178,7 @@ class Orbits:
 		for time_index in range(time_len-1):
 			for body_index in range(num_bodies):
 				x0 = self.body_responses[body_index,:,time_index]
-				resp = solve_ivp(self.orbital_eom, [time[time_index],time[time_index+1]], x0, t_eval=[time[time_index],time[time_index+1]])
+				resp = solve_ivp(self.orbital_eom, [time[time_index],time[time_index+1]], x0, t_eval=[time[time_index],time[time_index+1]],args=(body_index,time_index))
 				self.body_responses[body_index,:,time_index+1] = resp.y[:,-1]
 
 		if show_plot == True:
@@ -147,12 +202,10 @@ class Orbits:
 
 			# plt.ylim(-0.01,0.85)
 
-			# plt.plot(self.EARTH_X[0:time_index], self.EARTH_Y[0:time_index], label = 'Earth', linestyle = '-')
-			# plt.plot(self.EARTH_X[0:time_index], self.EARTH_Y[0:time_index], label = '', linestyle = '-')
-			# plt.plot(self.MOON_X[0:time_index], self.MOON_Y[0:time_index], label = '', linestyle = '--')
-			# plt.plot(self.MARS_X, self.MARS_Y, label = 'Mars', linestyle = '--')
+			markers = ["^","."]
+			linestyles = ["-","--"]
 			for body_index in range(len(self.body_name)):
-				plt.plot(self.body_responses[body_index,0,0:time_index]*np.cos(self.body_responses[body_index,2,0:time_index]), self.body_responses[body_index,0,0:time_index]*np.sin(self.body_responses[body_index,2,0:time_index]), label = '', linestyle = '-')
+				plt.plot(self.body_responses[body_index,0,0:time_index]*np.cos(self.body_responses[body_index,2,0:time_index]), self.body_responses[body_index,0,0:time_index]*np.sin(self.body_responses[body_index,2,0:time_index]), label = '', linestyle = linestyles[body_index],linewidth=1)
 				# plt.plot(self.body_responses[body_index,0,0:time_index], self.body_responses[body_index,0,0:time_index], label = '', linestyle = '-')
 
 			# leg = plt.legend(loc='upper right', ncol=3,handlelength=1.5,handletextpad=1.1)
@@ -169,9 +222,9 @@ class Orbits:
 
 
 # earth years to simulate
-years = 2
+years = 0.25
 
-time = np.arange(0.0,years*3.15E7,1E5)
+time = np.arange(0.0,years*3.15E7,1E4)
 
 ORBIT = Orbits()
 
@@ -186,6 +239,7 @@ MOON_MASS = 7.342E22 # mass of the moon (kg)
 MOON_EARTH_DIST = 362.6E6 # average distance of the moon from the earth (m)
 MOON_SUN_DIST = MOON_EARTH_DIST + EARTH_DIST
 MOON_VEL = EARTH_VEL + 1.022E3 # velocity of moon in sun-fixed frame at earth's perihelion (m)
+# MOON_VEL = 1.022E3 # velocity of moon in sun-fixed frame at earth's perihelion (m)
 MOON_ANG_VEL = MOON_VEL/(MOON_SUN_DIST) # angular velocity of moon in sun-fixed frame
 
 ORBIT.add_body('Earth', EARTH_MASS, EARTH_DIST, EARTH_ANG_VEL)
