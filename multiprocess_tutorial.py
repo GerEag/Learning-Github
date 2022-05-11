@@ -30,36 +30,17 @@ def shared_memory(start,stop,step,shared_value):
 
 if __name__ == '__main__':
 
-    ##############################################################################
-    # Simple parallel process
-
-    # start parallel process
-    p = Process(target=thread, args=(100000001,-1,-1))
-    start_time = perf_counter()
-
-    p.start()
-    # p.join() # blocks the main thread until the parallel process if finished
-
-    # thread(0,100000001,1)
-    for index in range(0,100000001,1):
-        if index % 10000000 == 0:
-            # parallel_value = q.get()
-            pass
-            # print(f"Wow! The values are {parallel_value} and {index}!")
-
-    final_time = perf_counter()
-    print(final_time-start_time)
-
     # ##############################################################################
-    # # Parallel processing with communication channel
-    # q = Queue()
+    # # Simple parallel process
 
-    # p = Process(target=share_process, args=(100000001,-1,-1,q))
-
+    # # start parallel process
+    # p = Process(target=thread, args=(100000001,-1,-1))
     # start_time = perf_counter()
 
     # p.start()
+    # # p.join() # blocks the main thread until the parallel process if finished
 
+    # # thread(0,100000001,1)
     # for index in range(0,100000001,1):
     #     if index % 10000000 == 0:
     #         # parallel_value = q.get()
@@ -68,6 +49,25 @@ if __name__ == '__main__':
 
     # final_time = perf_counter()
     # print(final_time-start_time)
+
+    ##############################################################################
+    # Parallel processing with communication channel
+    q = Queue()
+
+    p = Process(target=share_process, args=(100000001,-1,-1,q))
+
+    start_time = perf_counter()
+
+    p.start()
+
+    for index in range(0,100000001,1):
+        if index % 10000000 == 0:
+            # parallel_value = q.get()
+            pass
+            # print(f"Wow! The values are {parallel_value} and {index}!")
+
+    final_time = perf_counter()
+    print(final_time-start_time)
 
     # ###############################################################################
     # # Parallel processing with shared memory
