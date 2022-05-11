@@ -1,0 +1,1 @@
+This folder contains jupyter notebooks with notes on control theory, control methods and algorithms, and implementation. It is written mainly for my benefit as I learn various concepts.
