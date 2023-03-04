@@ -22,7 +22,7 @@ from scipy.linalg import solve_continuous_are
 import numpy as np
 from numpy import sin, cos, tan, clip, array
 
-# TODO: make changes from "step" on down
+# TODO: make changes from "render" on down
 
 class ParkCarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -32,7 +32,7 @@ class ParkCarEnv(gym.Env):
         self.velocity_limit = velocity_limit
         self.steering_limit = steering_limit
 
-        self.length = 5 # meters
+        self.length = 5 # length of the car
 
         self.angular_velocity_limit = self.velocity_limit*np.tan(self.steering_limit)/self.length
 
@@ -152,16 +152,13 @@ class ParkCarEnv(gym.Env):
 
         x, y, th_h = self.state
 
-        # total_input = self.generate_input(norm_action)
-        # velocity_command, steerring_command = norm_action
-
-        total_input_clipped = self.clip_control_output(norm_action,self.state)
+        velocity_command, steering_command = self.clip_control_output(norm_action,self.state)
 
         # initial values
         X0 = [x, y, th_h]
 
         # extra parameters
-        p = [total_input_clipped]
+        p = [velocity_command, steering_command]
         # solve the state space equations of motion
         resp = solve_ivp(self.eq_of_motion, [self.t, self.t+self.tau], X0, t_eval=[self.t,self.t+self.tau], args=p)
 
@@ -169,13 +166,11 @@ class ParkCarEnv(gym.Env):
         y = resp.y[1,-1]
         th_h = resp.y[2,-1]
 
-        # store the new clipped states
         self.state = array([x, y, th_h])
-
         # apply state constraints
         self.state = self.clip_state(self.state)
 
-        reward = -(x**2 + y**2)
+        reward = -(x**2 + y**2) # distance from the origin
 
         # # normalize state/observations
         # norm_x, norm_x_dot, norm_th, norm_th_dot = self.normalize_observation(x,x_dot,th,th_dot)
@@ -210,61 +205,48 @@ class ParkCarEnv(gym.Env):
         return self.state
 
     def render(self, mode='human', close=False):
-        screen_width = 600 # size of the window
-        screen_height = 300
+        
+        # define pixel size of the window
+        screen_width = 600
+        screen_height = 600
 
-        world_width = (1.1*self.max_pos - self.min_pos*1.1)
-        scale = screen_width/world_width
+        # define size of "physical" world shown by window
+        world_width = 1.1*self.workspace_width # meters
+        scale = screen_width/world_width # pixels/meter
 
-        trolley_width = 1.5*scale
-        trolley_height = scale
-        trolley_y = 0.5 * screen_height # y-position of trolley in screen
-        cable_width = 2
-        cable_len = 5*self.cable_length*scale
-        payload_size = 0.25*scale
-
-        # trolley_width = 50 * 0.13*scale
-        # trolley_height = 50 * 0.066*scale
-        # trolley_y = 0.5 * screen_height # y-position of trolley in screen
-        # cable_width = 2 * scale
-        # cable_len = 50 * self.cable_length*scale
-        # payload_size = 50 * 0.02*scale
+        car_length = self.length*scale
+        car_width = 0.25*car_length
 
         if self.viewer is None:
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(screen_width, screen_height) # set screen size
 
-            # add a polygon representing the trolley
-            l,r,t,b = -trolley_width/2, trolley_width/2, trolley_height/2, -trolley_height/2 # defines boundaries of shape measured from center
-            trolley = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)]) # corners of the polygon
-            self.trolleytrans = rendering.Transform()
-            trolley.add_attr(self.trolleytrans)
-            self.viewer.add_geom(trolley) # add trolley shape to viewer
+            # TODO: add a dot on the center of the car
 
-            # add a polygon representing the cable
-            l,r,t,b = -cable_width/2, cable_width/2, 0.0, -cable_len # defines boundaries of shape measured from pivot
+            # add a polygon representing the car
+            l,r,t,b = -car_width/2, car_width/2, car_length/2, -car_length/2 # defines boundaries of shape measured from center of car
             cable = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)]) # corners of the polygon
             self.cabletrans = rendering.Transform()
             cable.add_attr(self.cabletrans)
             self.viewer.add_geom(cable)
 
-            # add a circle for the payload
-            payload = rendering.make_circle(payload_size)
-            payload.set_color(1,0,0)
-            self.payloadtrans = rendering.Transform()
-            payload.add_attr(self.payloadtrans)
-            self.viewer.add_geom(payload)
+            # # add a circle for the payload
+            # payload = rendering.make_circle(payload_size)
+            # payload.set_color(1,0,0)
+            # self.payloadtrans = rendering.Transform()
+            # payload.add_attr(self.payloadtrans)
+            # self.viewer.add_geom(payload)
 
-            # add horizontal line along which trolley travels
-            self.track = rendering.Line(((self.min_pos*scale)+ screen_width/2,trolley_y), ((self.max_pos*scale)+screen_width/2,trolley_y))
-            # self.track = rendering.Line(((-5*scale)+ screen_width/2,trolley_y), ((5*scale)+screen_width/2,trolley_y))
-            self.track.set_color(0,0,0)
-            self.viewer.add_geom(self.track)
+            # # add horizontal line along which trolley travels
+            # self.track = rendering.Line(((self.min_pos*scale)+ screen_width/2,trolley_y), ((self.max_pos*scale)+screen_width/2,trolley_y))
+            # # self.track = rendering.Line(((-5*scale)+ screen_width/2,trolley_y), ((5*scale)+screen_width/2,trolley_y))
+            # self.track.set_color(0,0,0)
+            # self.viewer.add_geom(self.track)
 
-            # add vertical line marking zero displacement
-            self.origin = rendering.Line((screen_width/2.0,0.5*trolley_y), (screen_width/2,1.5*trolley_y))
-            self.origin.set_color(0,0,0)
-            self.viewer.add_geom(self.origin)
+            # # add vertical line marking zero displacement
+            # self.origin = rendering.Line((screen_width/2.0,0.5*trolley_y), (screen_width/2,1.5*trolley_y))
+            # self.origin.set_color(0,0,0)
+            # self.viewer.add_geom(self.origin)
 
 
         if self.state is None: return None
@@ -289,31 +271,12 @@ class ParkCarEnv(gym.Env):
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
-    def alias_controller(self):
-
-        if self.CONTROL_TYPE == 'lumped_lqr':
-            # design lqr for combined controller
-            print('Using lumped LQR\n')
-            self.K = self.design_LQR()
-            self.num_inputs = 2 # use to make arrays for evaluation
-            self.generate_input = self.lumped_lqr_input
-        elif self.CONTROL_TYPE == 'pure_RL':
-            print('Using pure RL\n')
-            self.num_inputs = 1 # use to make arrays for evaluation
-            self.generate_input = self.pure_RL_input
-        elif self.CONTROL_TYPE == 'switch_lqr':
-            print('Using switching controller\n')
-            self.K = self.design_LQR()
-            self.IN_STABLE_REGION = False
-            self.num_inputs = 1 # use to make arrays for evaluation
-            self.generate_input = self.switched_lqr_input
-        else:
-            raise ValueError(f"CONTROL_TYPE must be 'pure_RL', 'lumped_lqr', 'switch_lqr', but '{self.CONTROL_TYPE}' was given.")
 
     def change_state(self,state):
 
         self.state = state
-        norm_obs = self.normalize_observation(*self.state)
+        # norm_obs = self.normalize_observation(*self.state)
+        norm_obs = self.state
 
         return norm_obs, state
 
@@ -325,13 +288,13 @@ class ParkCarEnv(gym.Env):
         steering_command = clip(unclipped_output[1],-self.steering_limit,self.steering_limit)
 
         # if at maximum position, don't move
-        if x >= self.workspace_width/2 and velocity_command*cos(th_h) > 0:
+        if x >= self.workspace_width/2 and velocity_command*cos(th_h) > 0: # right side of screen and moving right
             velocity_command = 0
-        elif x <= -self.workspace_width/2 and velocity_command*cos(th_h) < 0:
+        elif x <= -self.workspace_width/2 and velocity_command*cos(th_h) < 0: # left side of screen and moving left
             velocity_command = 0
-        elif y >= self.workspace_height/2 and velocity_command*sin(th_h) > 0:
+        elif y >= self.workspace_height/2 and velocity_command*sin(th_h) > 0: # top of screen and moving up
             velocity_command = 0
-        elif y <= -self.workspace_height/2 and velocity_command*sin(th_h) < 0:
+        elif y <= -self.workspace_height/2 and velocity_command*sin(th_h) < 0: # bottom of screen and moving down
             velocity_command = 0
 
         return velocity_command, steering_command
@@ -341,10 +304,9 @@ class ParkCarEnv(gym.Env):
         x, y, th_h = state
 
         # clip the car position
-        x = clip(x,0,self.workspace_width)
-        y = clip(y,0,self.workspace_height)
+        x = clip(x,-self.workspace_width/2,self.workspace_width/2)
+        y = clip(y,-self.workspace_height/2,self.workspace_height/2)
 
-        # state = np.array([x,x_dot,th,th_dot])
         state = array([x,y,th_h])
 
         return state
