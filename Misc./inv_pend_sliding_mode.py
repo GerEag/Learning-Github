@@ -45,7 +45,7 @@ time_limit = 5 # end at 5 seconds
 t = np.arange(0,time_limit,tau) # time array
 
 # define sliding mode controller parameters
-gamma = 1
+gamma = 0.5
 eta = 15
 
 # initial conditions
@@ -66,6 +66,9 @@ th = resp.y[2,:]
 th_dot = resp.y[3,:]
 
 resp_array = np.vstack((x,x_dot,th,th_dot))
+
+# control input
+u = ((-gamma*th_dot-eta*np.sign(gamma*th+th_dot))*length-gravity*np.sin(th))/np.cos(th)
 
 # sliding mode at sigma = 0
 th_s = np.arange(-2*np.pi,2*np.pi,0.1)
@@ -92,6 +95,23 @@ for state_index in range(4):
 
     plt.tight_layout(pad=0.5)
 
+fig = plt.figure(figsize=(6,4))
+
+plt.xlabel(r'Time (s)',family='serif',fontsize=22,weight='bold',labelpad=5)
+plt.ylabel(r'Input',family='serif',fontsize=22,weight='bold',labelpad=10)
+
+plt.plot(t,u,linewidth=2.0)
+
+# plt.ylim(-0.62,0.2)
+
+# leg = plt.legend(loc='upper right', ncol=1,handlelength=1.5,handletextpad=1.1)
+# ltext  = leg.get_texts()
+# # plt.setp(ltext,family='CMUSerif-Roman',fontsize=16)
+# plt.setp(ltext,family='serif',fontsize=16)
+
+plt.tight_layout(pad=0.5)
+
+# plot the sliding function and response
 fig = plt.figure(figsize=(6,4))
 
 plt.xlabel(r'Time (s)',family='serif',fontsize=22,weight='bold',labelpad=5)
