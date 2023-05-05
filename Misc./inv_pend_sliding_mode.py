@@ -24,6 +24,7 @@ def eq_of_motion(t,w,gravity,length,gamma,eta):
 
     # acceleration command from smc
     u = ((-gamma*th_dot-eta*np.sign(gamma*th+th_dot))*length-gravity*np.sin(th))/np.cos(th)
+    u = np.clip(u,-10,10)
 
 
     # zero angle is defined about inverted equlibrium
@@ -41,12 +42,14 @@ gravity = 9.8 # m/s^2
 wn = 2*np.pi # rad/s
 length = gravity/wn**2 # m
 tau = 0.05  # seconds between state updates
-time_limit = 5 # end at 5 seconds
+time_limit = 15 # end at 5 seconds
 t = np.arange(0,time_limit,tau) # time array
 
 # define sliding mode controller parameters
-gamma = 0.5
-eta = 15
+# gamma = 0.5
+# eta = 15
+gamma = 0.09
+eta = 1
 
 # initial conditions
 x_init = 0.0
@@ -69,6 +72,7 @@ resp_array = np.vstack((x,x_dot,th,th_dot))
 
 # control input
 u = ((-gamma*th_dot-eta*np.sign(gamma*th+th_dot))*length-gravity*np.sin(th))/np.cos(th)
+u = np.clip(u,-10,10)
 
 # sliding mode at sigma = 0
 th_s = np.arange(-2*np.pi,2*np.pi,0.1)
